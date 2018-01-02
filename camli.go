@@ -2,10 +2,10 @@ package camlimail
 
 import (
 	"encoding/json"
-	"rmime"
 	"strings"
 	"time"
 
+	"github.com/bobg/rmime"
 	"perkeep.org/pkg/blob"
 	"perkeep.org/pkg/blobserver"
 	"perkeep.org/pkg/schema"

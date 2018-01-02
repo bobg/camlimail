@@ -4,12 +4,12 @@ import (
 	"camlimail"
 	"flag"
 	"log"
-	"rmime"
 	"strings"
 
 	"github.com/bobg/folder"
 	"github.com/bobg/folder/maildir"
 	"github.com/bobg/folder/mbox"
+	"github.com/bobg/rmime"
 	"github.com/bobg/uncompress"
 	"perkeep.org/pkg/blob"
 	"perkeep.org/pkg/client"
