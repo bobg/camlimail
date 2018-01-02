@@ -71,6 +71,10 @@ func main() {
 				log.Fatalf("adding message %d from %s: %s", i, arg, err)
 			}
 			log.Printf("message %d in %s added as %s", i, arg, ref)
+			err = addMember(client, folderPermanode, ref)
+			if err != nil {
+				log.Fatalf("adding message %d from %s to folder permanode: %s", i, arg, err)
+			}
 			err = addMember(client, messagesPermanode, ref)
 			if err != nil {
 				log.Fatalf("adding message %d from %s to camlimail-messages: %s", i, arg, err)
