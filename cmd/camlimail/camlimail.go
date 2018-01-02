@@ -12,23 +12,27 @@ import (
 	"github.com/bobg/rmime"
 	"github.com/bobg/uncompress"
 	"perkeep.org/pkg/blob"
-	"perkeep.org/pkg/client"
+	clientpkg "perkeep.org/pkg/client"
 	"perkeep.org/pkg/osutil"
+	"perkeep.org/pkg/schema"
 )
 
 func main() {
 	server := flag.String("server", "localhost:3179", "camlistore server address")
-	roots := flag.String("roots", "", "root blobrefs")
 	osutil.AddSecretRingFlag() // xxx it is messed up that this is needed
 
 	flag.Parse()
 
-	var permanodes []blob.Ref
-	for _, arg := range strings.Fields(*roots) {
-		permanodes = append(permanodes, blob.MustParse(arg))
-	}
+	client := clientpkg.New(*server)
 
-	client := client.New(*server)
+	foldersPermanode, err := permanodeRef(client, "camlimail-folders")
+	if err != nil {
+		log.Fatalf("getting/creating camlimail-folders permanode: %s", err)
+	}
+	messagesPermanode, err := permanodeRef(client, "camlimail-messages")
+	if err != nil {
+		log.Fatalf("getting/creating camlimail-messages permanode: %s", err)
+	}
 
 	for _, arg := range flag.Args() {
 		f, err := getFolder(arg)
@@ -36,8 +40,16 @@ func main() {
 			log.Printf("processing %s: %s", arg, err)
 			continue
 		}
-		// xxx add permanode for the folder
-		// xxx add folder permanode to root permanodes
+		folderPermanode, err := permanodeRef(client, arg)
+		if err != nil {
+			log.Printf("getting/creating permanode for folder %s: %s", arg, err)
+			continue
+		}
+		err = addMember(client, foldersPermanode, folderPermanode)
+		if err != nil {
+			log.Printf("adding permanode for folder %s to camlimail-folders: %s", arg, err)
+			continue
+		}
 		for i := 1; ; i++ {
 			msgR, closer, err := f.Message()
 			if err != nil {
@@ -59,7 +71,10 @@ func main() {
 				log.Fatalf("adding message %d from %s: %s", i, arg, err)
 			}
 			log.Printf("message %d in %s added as %s", i, arg, ref)
-			// xxx add message ref to folder permanode
+			err = addMember(client, messagesPermanode, ref)
+			if err != nil {
+				log.Fatalf("adding message %d from %s to camlimail-messages: %s", i, arg, err)
+			}
 		}
 	}
 }
@@ -74,4 +89,31 @@ func getFolder(name string) (folder.Folder, error) {
 		return nil, err
 	}
 	return mbox.New(r)
+}
+
+func permanodeRef(client *clientpkg.Client, key string) (blob.Ref, error) {
+	builder := schema.NewPlannedPermanode(key)
+	blob := builder.Blob()
+	jStr := blob.JSON()
+	ref := blob.BlobRef()
+	uploadHandle := &clientpkg.UploadHandle{
+		BlobRef:  ref,
+		Contents: strings.NewReader(jStr),
+		Size:     uint32(len(jStr)),
+	}
+	_, err := client.Upload(uploadHandle)
+	return ref, err
+}
+
+func addMember(client *clientpkg.Client, dst, src blob.Ref) error {
+	builder := schema.NewAddAttributeClaim(dst, "camliMember", src.String())
+	blob := builder.Blob()
+	jStr := blob.JSON()
+	uploadHandle := &clientpkg.UploadHandle{
+		BlobRef:  blob.BlobRef(),
+		Contents: strings.NewReader(jStr),
+		Size:     uint32(len(jStr)),
+	}
+	_, err := client.Upload(uploadHandle)
+	return err
 }
