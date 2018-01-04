@@ -42,6 +42,9 @@ func CamPutPart(dst blobserver.StatReceiver, p *rmime.Part) (blob.Ref, error) {
 	return camPut(dst, p, "mime-part")
 }
 
+// TODO:
+//   - text/* parts get inverted index
+//   - text/html parts get parsed into DOMs (?)
 func camPut(dst blobserver.StatReceiver, p *rmime.Part, camType string) (blob.Ref, error) {
 	var (
 		bodyName string
@@ -101,6 +104,12 @@ func camPut(dst blobserver.StatReceiver, p *rmime.Part, camType string) (blob.Re
 	}
 	if subj := p.Subject(); subj != "" {
 		m["subject"] = subj
+	}
+	if sender := p.Sender(); sender != nil {
+		m["sender"] = sender
+	}
+	if recipients := p.Recipients(); len(recipients) > 0 {
+		m["recipients"] = recipients
 	}
 
 	jBytes, err := json.MarshalIndent(m, "", " ")

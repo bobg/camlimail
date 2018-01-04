@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/bobg/folder"
 	"github.com/bobg/folder/maildir"
@@ -97,27 +98,30 @@ func getFolder(name string) (folder.Folder, error) {
 
 func permanodeRef(client *clientpkg.Client, key string) (blob.Ref, error) {
 	builder := schema.NewPlannedPermanode(key)
-	blob := builder.Blob()
-	jStr := blob.JSON()
-	ref := blob.BlobRef()
+	return signAndUpload(client, builder)
+}
+
+func addMember(client *clientpkg.Client, dst, src blob.Ref) error {
+	builder := schema.NewAddAttributeClaim(dst, "camliMember", src.String())
+	_, err := signAndUpload(client, builder)
+	return err
+}
+
+func signAndUpload(client *clientpkg.Client, builder *schema.Builder) (blob.Ref, error) {
+	signer, err := client.Signer()
+	if err != nil {
+		return blob.Ref{}, err
+	}
+	jStr, err := builder.SignAt(signer, time.Now())
+	if err != nil {
+		return blob.Ref{}, err
+	}
+	ref := blob.SHA1FromString(jStr)
 	uploadHandle := &clientpkg.UploadHandle{
 		BlobRef:  ref,
 		Contents: strings.NewReader(jStr),
 		Size:     uint32(len(jStr)),
 	}
-	_, err := client.Upload(uploadHandle)
+	_, err = client.Upload(uploadHandle)
 	return ref, err
-}
-
-func addMember(client *clientpkg.Client, dst, src blob.Ref) error {
-	builder := schema.NewAddAttributeClaim(dst, "camliMember", src.String())
-	blob := builder.Blob()
-	jStr := blob.JSON()
-	uploadHandle := &clientpkg.UploadHandle{
-		BlobRef:  blob.BlobRef(),
-		Contents: strings.NewReader(jStr),
-		Size:     uint32(len(jStr)),
-	}
-	_, err := client.Upload(uploadHandle)
-	return err
 }
