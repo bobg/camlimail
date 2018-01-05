@@ -90,11 +90,19 @@ func camPut(dst blobserver.StatReceiver, p *rmime.Part, camType string) (blob.Re
 		body = bodyRef
 	}
 
+	cd, cdParams := p.Disposition()
 	m := map[string]interface{}{
-		"camliType":    camType,
-		"fields":       p.Fields,
-		"content_type": p.Type(),
-		bodyName:       body,
+		"camliType":           camType,
+		"fields":              p.Fields,
+		"content_type":        p.Type(),
+		"content_disposition": cd,
+		bodyName:              body,
+	}
+	if params := p.Params(); len(params) > 0 {
+		m["content_type_params"] = params
+	}
+	if len(cdParams) > 0 {
+		m["content_disposition_params"] = cdParams
 	}
 	if t := p.Time(); t != (time.Time{}) {
 		m["time"] = t
